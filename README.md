@@ -1,0 +1,2 @@
+# KanLang
+RedLang rethinking
