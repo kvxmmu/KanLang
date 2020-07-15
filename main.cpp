@@ -2,178 +2,207 @@
 
 #include <kan/compiler.hpp>
 #include <kan/lexer.hpp>
+#include <kan/parser.hpp>
 
 #define NOPUSH 0xff
 
 #include <deque>
 
-size_t find_highest_priority(const token_vector_t &tokens) {
-    size_t max_priority = std::string::npos;
-    size_t max_pos = 0;
+template <typename T>
+T calculate(AstTree &tree);
 
-    for (size_t pos = 0; pos < tokens.size(); pos++) {
-        const Token &token = tokens[pos];
+template <typename T>
+T mix_operator(Token &op, const Token &number_tkn) {
+    T out = std::stoll(number_tkn.value);
 
-        if (token.type != OPERATOR) {
-            continue;
-        }
+    switch (op.subtype) {
+        case MINUS:
+            return -out;
 
-        if (max_priority == std::string::npos) {
-            max_pos = pos;
-            max_priority = token.priority;
+        case PLUS:
+            return +out;
 
-            continue;
-        }
-
-        if (max_priority < token.priority) {
-            max_pos = pos;
-            max_priority = token.priority;
-        }
+        default:
+            throw std::runtime_error("Unknown unary operator");
     }
-
-    if (max_priority == std::string::npos) {
-        return max_priority;
-    }
-
-    return max_pos-1;
 }
 
-void determine_operator(KanIR &ir, Token &op) {
+template <typename T>
+T mix_operator(Token &op, const T &out) {
     switch (op.subtype) {
+        case MINUS:
+            return -out;
+
         case PLUS:
-            ir.addq();
+            return +out;
+
+        default:
+            throw std::runtime_error("Unknown unary operator");
+    }
+}
+
+template <typename T>
+std::pair<size_t, ast_object_type_t> find_highest_priority(AstTree &tree) {
+    size_t max_pos = std::string::npos;
+    size_t max_priority = std::string::npos;
+
+    ast_object_type_t block_type = NO_TYPE;
+
+    for (size_t pos = 0; pos < tree.size();) {
+        AstObject &first = tree.at(pos);
+
+        if (first.type == TREE) {
+            max_pos = pos;
+
             break;
+        }
+
+        if (pos+1 >= tree.size()) {
+            break;
+        }
+
+        if (first.type == TOKEN && first.token.type == OPERATOR) {
+            AstObject &number = tree.at(pos+1);
+
+            if (number.type == TREE) {
+                max_pos = pos+1;
+                block_type = number.type;
+
+                break;
+            } else {
+                auto result = mix_operator<T>(first.token, number.token);
+
+                tree.replace(pos, 2, Token(std::to_string(result), NUMBER));
+
+                continue;
+            }
+        }
+
+        Token &op = tree.at(pos+1).token;
+
+        AstObject &right_object = tree.at(pos+2);
+
+        if (right_object.type == TREE) {
+            max_pos = pos+2;
+
+            break;
+        }
+
+        if (max_priority == std::string::npos || max_priority < op.priority) {
+            max_pos = pos;
+            max_priority = op.priority;
+        }
+
+        pos += 2;
+    }
+
+    return std::make_pair(max_pos, block_type);
+}
+
+template <typename T>
+T calculate_child(const Token &left_tkn, const Token &right_tkn,
+        const Token &op) {
+    T left = std::stoll(left_tkn.value);
+    T right = std::stoll(right_tkn.value);
+
+    switch (op.subtype) {
+        case MINUS:
+            return left - right;
+
+        case PLUS:
+            return left + right;
 
         case MUL:
-            ir.mulq();
-            break;
+            return left * right;
 
         case DIV:
-            ir.divq();
-            break;
+            return left / right;
 
-        case MINUS:
-            ir.subq();
-            break;
+        case MOD:
+            return left % right;
+
+        default:
+            throw std::runtime_error("Unknown pizdec");
     }
 }
 
-KanIR compile_expr(token_vector_t tokens) {
-    KanIR ir;
+template <typename T>
+T calculate(AstTree &tree) {
+    while (true) {
+        auto pos_pair = find_highest_priority<T>(tree);
 
-    while (tokens.size() > 1) {
-        size_t pos = find_highest_priority(tokens);
+        size_t pos = pos_pair.first;
+        ast_object_type_t block_type = pos_pair.second;
 
         if (pos == std::string::npos) {
-            throw std::runtime_error("Всем похуй.");
-        }
-
-        Token &left = tokens[pos];
-        Token &op = tokens[pos+1];
-        Token &right = tokens[pos+2];
-
-        if (left.has_flag(NOPUSH) && right.has_flag(NOPUSH)) {
             break;
-        } else if (left.has_flag(NOPUSH)) {
-            ir.push("float32", right.value);
-            determine_operator(ir, op);
-
-        } else if (right.has_flag(NOPUSH)) {
-            ir.push("float32", left.value);
-            determine_operator(ir, op);
-
-        } else {
-            ir.push("float32", left.value);
-            ir.push("float32", right.value);
-            determine_operator(ir, op);
         }
 
+        AstObject &left_ast = tree.at(pos);
 
+        if (left_ast.type == TREE) {
+            auto result = calculate<T>(*left_ast.tree);
 
-        tokens.erase(tokens.begin()+pos, tokens.begin()+pos+3);
-
-        Token new_token("xxx", NO_TYPE);
-        new_token.flags = NOPUSH;
-
-        tokens.insert(tokens.begin()+pos, new_token);
-
-    }
-
-    return ir;
-}
-
-template <typename T>
-T eval_op(T left, T right,
-        const std::string &op) {
-    if (op == ADD_COMMAND) {
-        return left + right;
-    } else if (op == DIV_COMMAND) {
-        return left / right;
-    } else if (op == SUB_COMMAND) {
-        return left - right;
-    } else if (op == MUL_COMMAND) {
-        return left * right;
-    }
-
-    throw std::runtime_error("Unknown operator");
-}
-
-template <typename T>
-T eval(const KanIR &ir) {
-    std::deque<T> stack;
-
-    for (auto &command : ir.command_layer) {
-        size_t endpos = command.find(' ');
-
-        if (endpos != std::string::npos) { // two argument
-            std::string args = command.substr(endpos+1);
-            std::string needle = args.substr(args.find(' ')+1);
-
-            stack.push_back(std::stoi(needle));
+            tree.replace(pos, 1, Token(std::to_string(result), NUMBER));
 
             continue;
         }
 
-        T left = stack.front();
-        stack.pop_front();
+        Token &left = left_ast.token;
+        Token &op = tree.at(pos+1).token;
+        Token &right = tree.at(pos+2).token;
 
-        T right = stack.front();
-        stack.pop_front();
+        if (right.type == OPERATOR) {
+            AstObject &shifted = tree.at(pos+3);
 
-        stack.push_back(eval_op(left, right, command));
+            if (shifted.type == TREE) {
+                auto result = calculate<T>(*shifted.tree);
+                result = mix_operator<T>(right, result);
+
+                tree.replace(pos+2, 2, Token(std::to_string(result), NUMBER));
+
+                continue;
+            }
+
+            auto result = calculate<T>(*shifted.tree);
+
+            tree.replace(pos+2, 2, Token(std::to_string(result), NUMBER));
+        }
+
+        auto result = calculate_child<T>(left, right, op);
+
+        tree.replace(pos, 3, Token(std::to_string(result), NUMBER));
     }
 
-    return stack.front();
+
+    return std::stoll(tree[0].token.value);
 }
 
 int main() {
     std::vector<lexer_function_t> lexers = {
         is_number,
         is_operator,
-        is_breakline
+        is_breakline,
+        is_brackets
     };
 
     std::string line;
 
     while (true) {
-        std::cout << "KanCalc> ";
+        std::cout << "calc> ";
         std::getline(std::cin, line);
 
         if (line == "quit") {
             break;
-        } else if (line.empty()) {
-            std::cout << "Enter quit to exit from calc" << std::endl;
-
-            continue;
         }
 
-        auto tokens = lex(line, lexers);
-        auto ir = compile_expr(tokens);
+        auto lexed = lex(line, lexers);
+        auto parsed = parse(lexed).second;
 
-        std::cout << "IR: " << ir.compile() << std::endl;
-        std::cout << "Eval: " << eval<float>(ir) << std::endl;
+        std::cout << calculate<long>(parsed) << std::endl;
+
+        parsed.free();
     }
-
 
     return 0;
 }

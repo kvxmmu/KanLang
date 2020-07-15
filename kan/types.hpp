@@ -48,6 +48,9 @@
 #define FULL_PRIORITY 0xfu
 #define DO_FIRST_PRIORITY 0xffu
 
+#define QBRACKET_PRIORITY NORMAL_PRIORITY
+#define BRACKET_PRIORITY DO_FIRST_PRIORITY
+#define BRACES_PRIORITY DO_FIRST_PRIORITY
 
 #define TOKEN 1
 #define TREE 2
@@ -160,7 +163,7 @@ public:
         return stream;
     }
 
-    inline bool has_flag(uint16_t flag) {
+    inline bool has_flag(uint16_t flag) const {
         return (this->flags & flag) == flag;
     }
 };
@@ -175,6 +178,7 @@ public:
     Token token;
 
     ast_object_type_t type = TOKEN;
+    priority_t priority = NORMAL_PRIORITY;
 
     AstObject(AstTree *_top, AstTree *_tree);
     AstObject(AstTree *_top, Token _token);
@@ -183,6 +187,11 @@ public:
 class AstTree {
 public:
     std::vector<AstObject> objects;
+    ast_object_type_t tree_type = NO_TYPE;
+
+    priority_t priority = NORMAL_PRIORITY;
+
+    bool need_free = false;
 
     [[maybe_unused]] typedef AstObject value_type;
 
@@ -196,7 +205,21 @@ public:
 
     AstObject &operator[](size_t index);
     AstObject &at(size_t index);
+    void erase(const std::vector<AstObject>::iterator &first,
+                const std::vector<AstObject>::iterator &last);
+    void erase(const std::vector<AstObject>::iterator &start);
 
+    inline std::vector<AstObject>::iterator begin() {
+        return this->objects.begin();
+    }
+
+    inline std::vector<AstObject>::iterator end() {
+        return this->objects.end();
+    }
+
+    void replace(size_t start, size_t size, const Token &token);
+
+    void free();
 };
 
 template<typename... Args>
@@ -209,6 +232,8 @@ template<typename... Args>
 void AstTree::emplace_front(Args&&... args) {
     this->objects.emplace(this->objects.begin(), this, std::forward<Args>(args)...);
 }
+
+
 
 
 #endif //KANLANG_TYPES_HPP

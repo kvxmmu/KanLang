@@ -15,3 +15,5 @@ add_executable(kanlang main.cpp)
 
 target_link_libraries(kanlang kanlang_compiler)
 include_directories(.)
+
+add_definitions(-Ofast)

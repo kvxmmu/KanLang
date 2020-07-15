@@ -92,7 +92,8 @@ bool is_operator(token_vector_t &tokens, string_iterator_t &iterator) {
             Operator {"!", NOT},
             Operator {">=", GREATER_OR_EQUALS},
             Operator {"<=", LESSER_OR_EQUALS},
-            Operator {"/", DIV}
+            Operator {"/", DIV},
+            Operator {"%", MOD}
     };
 
     for (auto &op : operators) {
