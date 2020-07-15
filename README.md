@@ -1,7 +1,7 @@
 # KanLang
 RedLang rethinking
 
-Currently available only calculator mode(brackets support currently not provided)
+Currently available only calculator mode
 
 # Compile
 
