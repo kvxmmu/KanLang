@@ -5,15 +5,10 @@ project(kanlang LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(kanlang_compiler kan/compiler.cpp kan/compiler.hpp
-       kan/lexer.cpp kan/lexer.hpp
-       kan/traceback.cpp kan/traceback.hpp
-       kan/parser.cpp kan/parser.hpp
-       kan/types.cpp kan/types.hpp)
+add_library(kanlang_parser kan/parser.cpp
+        kan/parser.hpp kan/semantic.cpp kan/semantic.hpp)
 
-add_executable(kanlang main.cpp)
+add_executable(kan main.cpp)
 
-target_link_libraries(kanlang kanlang_compiler)
-include_directories(.)
+target_link_libraries(kan kanlang_parser)
 
-add_definitions(-Ofast)

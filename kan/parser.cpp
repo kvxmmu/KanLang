@@ -1,67 +1,54 @@
 //
-// Created by kvxmmu on 7/4/20.
+// Created by kvxmmu on 2/12/21.
 //
 
 #include "parser.hpp"
 
-std::pair<size_t, AstTree> parse(const token_vector_t &tokens,
-                                 size_t start_pos, Token *until_token,
-                                 priority_t block_priority) {
-    AstTree tree;
-    ConstPeekableIterator<token_vector_t> iterator(tokens);
-    iterator.pos = start_pos;
+/// AstTree
 
-    Token close_bracket(")", CLOSE_BRACKET, BRACKET_PRIORITY);
-    Token close_qbracket("]", CLOSE_QBRACKET, QBRACKET_PRIORITY);
-    Token close_brace("}", CLOSE_BRACE, BRACES_PRIORITY);
+std::shared_ptr<Kan::AstObject> Kan::AstTree::add_tree(Kan::TreeType _type) {
+    auto tree = std::make_shared<AstObject>(_type);
 
-    while (!iterator.is_done()) {
-        auto &current_token = iterator.peek(0);
+    this->objects.push_back(tree);
 
-        if (until_token != nullptr && current_token.type == until_token->type) {
-            iterator.next();
-            break;
-        }
+    return tree;
+}
 
-        if (current_token.type == OPEN_BRACKET || current_token.type == OPEN_BRACE
-            || current_token.type == OPEN_QBRACKET) {
-            Token *use_object = nullptr;
+std::shared_ptr<Kan::AstObject> Kan::AstTree::add_token(const Kan::Token &_token) {
+    auto object = std::make_shared<Kan::AstObject>(_token);
 
-            switch (current_token.type) {
-                case OPEN_BRACE:
-                    use_object = &close_brace;
-                    break;
+    this->objects.push_back(object);
 
-                case OPEN_BRACKET:
-                    use_object = &close_bracket;
-                    break;
+    return object;
+}
 
-                case OPEN_QBRACKET:
-                    use_object = &close_qbracket;
-                    break;
+/// Tokenizer
 
-                default:
-                    throw std::runtime_error("Unknown object type(parsing)");
+std::vector<Kan::Token> Kan::parse_tokens(std::string_view code,
+                                     const std::vector<Kan::token_parser_t> &parsers) {
+    std::vector<Kan::Token> tokens;
+    Kan::Iterator<std::string_view> it(code, NULLCHR);
+
+    bool success = false;
+
+    while (!it.is_done(0)) {
+        for (auto &parser : parsers) {
+            success = parser(it, tokens);
+
+            if (success) {
+                break;
             }
-
-            auto new_tree_pair = parse(tokens, iterator.pos+1, use_object,
-                                       use_object->priority);
-            auto tree_copy = new AstTree;
-
-            *tree_copy = new_tree_pair.second;
-            tree_copy->tree_type = current_token.type;
-            tree_copy->need_free = true;
-            tree_copy->priority = use_object->priority;
-
-            tree.emplace_back(tree_copy);
-
-            iterator.next(new_tree_pair.first - iterator.pos - 1);
-        } else {
-            tree.emplace_back(current_token);
         }
 
-        iterator.next();
+        if (!success) {
+            std::cout << "Pohui " << it.pos << std::endl;
+
+            return {};
+        } else {
+            success = false;
+        }
     }
 
-    return std::make_pair(iterator.pos, tree);
+    return tokens;
 }
+
