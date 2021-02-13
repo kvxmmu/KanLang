@@ -52,3 +52,31 @@ std::vector<Kan::Token> Kan::parse_tokens(std::string_view code,
     return tokens;
 }
 
+void Kan::parse_tree(TokenTypes parse_until,
+                     token_iterator_t &it, AstTree *tree) {
+    while (!it.is_done(0)) {
+        auto token = it.peek();
+
+        if (token.token_types == parse_until) {
+            it.next();
+
+            break;
+        } else if (token.token_types == TokenTypes::OPEN_BRACE ||
+                    token.token_types == TokenTypes::OPEN_BRACKET) {
+            it.next();
+
+            bool is_brace = token.token_types == TokenTypes::OPEN_BRACE;
+
+            auto new_tree = tree->add_tree(is_brace ? TreeType::BRACES : TreeType::BRACKETS);
+
+            Kan::parse_tree(is_brace ? TokenTypes::CLOSE_BRACE : TokenTypes::CLOSE_BRACKET, it,
+                    new_tree->tree.get());
+
+            continue;
+        }
+
+        tree->add_token(token);
+        it.next();
+    }
+}
+

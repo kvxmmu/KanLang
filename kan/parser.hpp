@@ -142,8 +142,10 @@ namespace Kan {
         std::shared_ptr<AstObject> add_token(const Token &_token);
     };
 
-    typedef Iterator<std::string_view> string_iterator_t;
     typedef std::vector<Token> tokens_t;
+    typedef Iterator<std::string_view> string_iterator_t;
+    typedef Iterator<tokens_t> token_iterator_t;
+
     typedef std::function<bool(string_iterator_t &, tokens_t &)> token_parser_t;
 
     static token_parser_t one_char_parser(char chr, TokenTypes type, bool push = true) {
@@ -373,6 +375,8 @@ namespace Kan {
 
     std::vector<Token> parse_tokens(std::string_view code,
                                     const std::vector<token_parser_t> &parsers);
+    void parse_tree(TokenTypes parse_until,
+                    token_iterator_t &it, AstTree *tree);
 }
 
 
