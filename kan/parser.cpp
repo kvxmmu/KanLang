@@ -80,3 +80,10 @@ void Kan::parse_tree(TokenTypes parse_until,
     }
 }
 
+[[nodiscard]] bool Kan::AstObject::is_tree(const TreeType _type) const {
+    return this->type == AstType::TREE && this->tree->type == _type;
+}
+
+[[nodiscard]] bool Kan::AstObject::is_tree() const {
+    return this->type == AstType::TREE;
+}

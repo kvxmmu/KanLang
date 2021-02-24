@@ -1,15 +1,21 @@
 //
-// Created by kvxmmu on 2/13/21.
+// Created by kvxmmu on 2/18/21.
 //
 
 #include "executor.hpp"
 
 #include <iostream>
 
-int Kan::Executor::execute(Kan::AstTree &tree) {
-    Kan::Executor::ast_iterator_t it(tree.objects);
+//uint16_t Kan::Executor::get_uint16(const std::vector<char> &data,
+//                    size_t pos) {
+//
+//}
 
-    std::cout << sizeof(Kan::Types::Type) << std::endl;
+using name_t = Kan::Types::name_t;
+
+int Kan::Executor::execute(const char *data,
+        size_t data_size) {
+
 
     return 0;
 }

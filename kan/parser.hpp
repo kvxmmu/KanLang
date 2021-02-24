@@ -17,13 +17,22 @@
 #include "iterator.hpp"
 #include <iostream>
 
+#define TREEPTR 1u
 #define NULLCHR '\x00'
 #define ONE_CHAR_PARSER_DEF(chr, name, _ttype) bool name(string_iterator_t &it, tokens_t &tokens) {\
-    return one_char_parser(chr, _ttype)(it, tokens); \
+    try { \
+        return one_char_parser(chr, _ttype)(it, tokens); \
+    } catch (std::runtime_error &e) { \
+        return false; \
+    } \
 }
 #define TWO_CHARS_PARSER_DEF(fchr, schr,\
                              name, _ttype) bool name(string_iterator_t &it, tokens_t &tokens) {\
-    return two_chars_parser(fchr, schr, _ttype)(it, tokens); \
+    try { \
+        return two_chars_parser(fchr, schr, _ttype)(it, tokens); \
+    } catch (std::runtime_error &e) { \
+        return false; \
+    } \
 }
 
 namespace Kan {
@@ -55,6 +64,7 @@ namespace Kan {
         SEMICOLON,
         COLON,
         COMMA,
+        DOT,
 
         // literals
         STRING,
@@ -70,14 +80,16 @@ namespace Kan {
 
     enum AstType {
         TOKEN,
-        TREE
+        TREE,
+
+        ALTPTR
     };
 
     enum TreeType {
         MASTER,
 
         BRACKETS,
-        BRACES
+        BRACES,
     };
 
     class Token {
@@ -105,9 +117,24 @@ namespace Kan {
         std::shared_ptr<AstTree> tree = nullptr;
         Token token;
 
+        void *altptr = nullptr;
+        std::function<void(void *)> free_func = nullptr;
+
         AstType type = AstType::TREE;
 
+        AstObject(void *) : type(AstType::ALTPTR) {  };
+
         AstObject(TreeType _ttype = TreeType::MASTER) : tree(std::make_shared<AstTree>(_ttype)) {
+
+        }
+
+        bool is_empty_token() {
+            return this->token.token.empty();
+        }
+
+        AstObject(void *_ptr,
+                std::function<void(void *)> _free_func) : type(AstType::ALTPTR), altptr(_ptr),
+                                                          free_func(_free_func) {
 
         }
 
@@ -115,12 +142,15 @@ namespace Kan {
 
         }
 
-        [[nodiscard]] constexpr bool is_tree() const {
-            return this->type == AstType::TREE;
-        }
+        [[nodiscard]] bool is_tree(const TreeType _type) const;
+        [[nodiscard]] bool is_tree() const;
 
         [[nodiscard]] AstTree &get_tree() const {
             return *this->tree;
+        }
+
+        [[nodiscard]] constexpr bool check_token_type(TokenTypes _type) const {
+            return this->type == AstType::TOKEN && this->token.token_types == _type;
         }
 
         [[nodiscard]] const Token &get_token() const {
@@ -214,6 +244,8 @@ namespace Kan {
             ONE_CHAR_PARSER_DEF(',', comma, COMMA)
             ONE_CHAR_PARSER_DEF(':', colon, COLON)
 
+            ONE_CHAR_PARSER_DEF('.', dot, DOT)
+
             bool parse_skip_char(string_iterator_t &it, tokens_t &) {
                 char chr = it.peek();
 
@@ -233,8 +265,18 @@ namespace Kan {
                 char chr;
                 bool is_float = false;
 
-                while (isdigit(chr = it.peek(offset)) ||
-                       chr == '.') {
+                while (true) {
+                    try {
+                        chr = it.peek(offset);
+                    } catch (std::runtime_error &e) {
+                        break;
+                    }
+
+                    if (!isdigit(chr) &&
+                        chr != '.') {
+                        break;
+                    }
+
                     if (number.empty() && chr == '.') {
                         break;
                     }
@@ -271,7 +313,11 @@ namespace Kan {
                 offset++;
 
                 while (true) {
-                    chr = it.peek(offset);
+                    try {
+                        chr = it.peek(offset);
+                    } catch (std::runtime_error &e) {
+                        break;
+                    }
 
                     if (chr == '"' || chr == NULLCHR) {
                         break;
@@ -323,9 +369,14 @@ namespace Kan {
                 static std::string_view allowed_chars = "_qwertyuiopasdfghjklzxcvbnm0123456789";
 
                 size_t offset = 0;
+                char chr;
 
                 while (allowed_chars.find(it.peek(offset)) != std::string_view::npos) {
-                    char chr = it.peek(offset++);
+                    try {
+                       chr = it.peek(offset++);
+                    } catch (std::runtime_error &e) {
+                        break;
+                    }
 
                     id += chr;
                 }
@@ -367,7 +418,8 @@ namespace Kan {
 
             colon,
             semicolon,
-            comma
+            comma,
+            dot
         };
 
 

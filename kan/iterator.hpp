@@ -5,6 +5,8 @@
 #ifndef KANLANG_ITERATOR_HPP
 #define KANLANG_ITERATOR_HPP
 
+#include <stdexcept>
+
 namespace Kan {
     template <typename T,
             typename V = typename T::value_type>
@@ -13,11 +15,9 @@ namespace Kan {
         size_t pos;
 
         T &container;
-        V default_value;
 
         explicit Iterator(T &_container,
-                V _default_value = V(),
-                size_t start_from = 0) : pos(start_from), container(_container), default_value(_default_value) {
+                size_t start_from = 0) : pos(start_from), container(_container) {
 
         }
 
@@ -27,7 +27,7 @@ namespace Kan {
 
         const V &peek(size_t offset = 0) {
             if (this->is_done(offset)) {
-                return this->default_value;
+                throw std::runtime_error("Peekable is reached end");
             }
 
             return this->container[this->pos + offset];

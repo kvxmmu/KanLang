@@ -6,6 +6,7 @@
 #define THINPAK_BYTEBUFFER_HPP
 
 #include <cstring>
+#include <cinttypes>
 
 
 enum Endianess {
@@ -13,7 +14,7 @@ enum Endianess {
 };
 
 
-uint32_t uint32_from_float(float x) {
+inline uint32_t uint32_from_float(float x) {
     uint32_t uint32;
 
     memcpy(&uint32, &x, sizeof(uint32_t));
@@ -21,7 +22,7 @@ uint32_t uint32_from_float(float x) {
     return uint32;
 }
 
-float float_from_uint32(uint32_t uint32) {
+inline float float_from_uint32(uint32_t uint32) {
     float x;
 
     memcpy(&x, &uint32, sizeof(uint32_t));
@@ -29,7 +30,7 @@ float float_from_uint32(uint32_t uint32) {
     return x;
 }
 
-uint32_t int32_to_uint32(int32_t int32) {
+inline uint32_t int32_to_uint32(int32_t int32) {
     uint32_t uint32;
 
     memcpy(&uint32, &int32, sizeof(int32_t));
@@ -37,7 +38,7 @@ uint32_t int32_to_uint32(int32_t int32) {
     return uint32;
 }
 
-uint16_t int16_to_uint16(int16_t int16) {
+inline uint16_t int16_to_uint16(int16_t int16) {
     uint16_t uint16;
 
     memcpy(&uint16, &int16, sizeof(int16_t));
@@ -45,7 +46,7 @@ uint16_t int16_to_uint16(int16_t int16) {
     return uint16;
 }
 
-int16_t uint16_to_int16(uint16_t uint16) {
+inline int16_t uint16_to_int16(uint16_t uint16) {
     int16_t int16;
 
     memcpy(&int16, &uint16, sizeof(int16_t));
@@ -53,10 +54,14 @@ int16_t uint16_to_int16(uint16_t uint16) {
     return int16;
 }
 
-template <typename IntegerType>
-void int_to_bytes(IntegerType integer,
+template <typename NumberType>
+static void int_to_bytes(NumberType _integer,
                   char *_buffer, Endianess endianess = Endianess::LITTLE) {
-    size_t length = sizeof(IntegerType);
+    size_t integer = 0;
+
+    memcpy(&integer, &_integer, sizeof(NumberType));
+
+    size_t length = sizeof(NumberType);
 
     if (integer == 0) {
         _buffer[0] = 0;
@@ -87,8 +92,8 @@ void int_to_bytes(IntegerType integer,
 }
 
 template <typename IntegerType>
-IntegerType bytes_to_int(char *_buffer, Endianess endianess = Endianess::LITTLE) {
-    auto buffer = reinterpret_cast<unsigned char *>(_buffer);
+static IntegerType bytes_to_int(const char *_buffer, Endianess endianess = Endianess::LITTLE) {
+    auto buffer = reinterpret_cast<unsigned const char *>(_buffer);
     IntegerType integer = 0;
     size_t size_length = sizeof(IntegerType);
     size_t pos = 0;

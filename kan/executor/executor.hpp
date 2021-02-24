@@ -1,22 +1,23 @@
 //
-// Created by kvxmmu on 2/13/21.
+// Created by kvxmmu on 2/18/21.
 //
 
 #ifndef KANLANG_EXECUTOR_HPP
 #define KANLANG_EXECUTOR_HPP
 
-#include <unordered_map>
-#include <variant>
+#include <vector>
+#include <cinttypes>
+#include <deque>
 
-#include "../parser.hpp"
 #include "types/types.hpp"
+#include "types/std/types.hpp"
+#include "bytecode_def.h"
 
-#include "types/integer.hpp"
+#include "../bytebuffer.hpp"
 
 namespace Kan::Executor {
-    int execute(Kan::AstTree &tree);
-
-    typedef Iterator<decltype(AstTree::objects)> ast_iterator_t;
+    int execute(const char *data,
+                size_t data_size);
 }
 
 

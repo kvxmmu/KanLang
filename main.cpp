@@ -1,10 +1,11 @@
 #include <iostream>
 
 #include "kan/parser.hpp"
+#include "kan/executor/compiler.hpp"
 #include "kan/executor/executor.hpp"
 
 int main() {
-    auto code = "a = 10;";
+    auto code = "a = \"пизда? да\".print()+2;";
     Kan::AstTree tree;
 
     auto tokens = Kan::parse_tokens(code, Kan::Tokenizers::default_all_incl);
@@ -14,7 +15,7 @@ int main() {
     Kan::parse_tree(Kan::TokenTypes::SKIP, it,
             &tree);
 
-    Kan::Executor::execute(tree);
+    auto data = Kan::Executor::compile(tree);
 
     return 0;
 }
