@@ -17,6 +17,10 @@
 #define PUSH_STRING 10u
 #define UPLUS 11u
 #define UMINUS 12u
+#define SET_NAME 13u
+#define START_SCOPE 14u
+#define END_SCOPE 15u
+#define GET_ATTRIBUTESB 16u
 
 // FORMAT:
 /*

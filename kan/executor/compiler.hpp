@@ -15,6 +15,7 @@
 #include "../bytebuffer.hpp"
 
 #include "statements_class.hpp"
+#include "../types.h"
 
 #define IF_NAME "if"
 #define FUNC_NAME "func"

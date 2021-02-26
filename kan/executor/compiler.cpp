@@ -175,7 +175,12 @@ void Kan::Executor::compile_expression(Kan::Statements::CompileStream *stream,
                     break;
                 }
 
-                Kan::Executor::compile_literal(third->token, stream);
+                if (second->token.token_types != TokenTypes::DOT) {
+                    Kan::Executor::compile_literal(third->token, stream);
+                } else if (third->token.token_types != TokenTypes::ID) {
+                    throw std::runtime_error("Syntax error 2u");
+                }
+
                 Kan::Executor::compile_literal(first->token, stream);
 
                 switch (second->token.token_types) {
@@ -190,7 +195,7 @@ void Kan::Executor::compile_expression(Kan::Statements::CompileStream *stream,
                         break;
 
                     case TokenTypes::DOT:
-                        stream->get_attribute();
+                        stream->get_attribute(third->token.token);
 
                         break;
 
@@ -219,6 +224,8 @@ void Kan::Executor::compile_expression(Kan::Statements::CompileStream *stream,
                 if (obj->is_tree()) {
                     Kan::Executor::compile_brackets(stream, obj,
                                                     pos+1u, objects);
+                } else if (!obj->is_empty_token()) {
+                    Kan::Executor::compile_literal(obj->token, stream);
                 }
 
                 it.next(it.container.size());
@@ -299,7 +306,7 @@ void Kan::Executor::compile_literal(const Token &literal, Kan::Statements::Compi
         if (literal.token_types == TokenTypes::FLOAT) {
             stream->push_integral(std::stof(literal.token));
         } else {
-            stream->push_integral(std::stol(literal.token));
+            stream->push_integral(std::stoi(literal.token));
         }
     } else if (literal.token_types == TokenTypes::STRING) {
         stream->push_string(literal.token);
@@ -317,9 +324,9 @@ void Kan::Executor::compile_literal(const Token &literal, Kan::Statements::Compi
 Kan::Statements::CompileStream *Kan::Executor::compile(Kan::AstTree &tree) {
     auto stream = new Kan::Statements::VectorCompileStream;
 
-    stream->write_integral(100u);
-
     ast_iterator_t it(tree.objects);
+
+    stream->start_scope();
 
     std::vector<stmt> statement_parsers = {
             stmt({
@@ -360,10 +367,13 @@ Kan::Statements::CompileStream *Kan::Executor::compile(Kan::AstTree &tree) {
             if (condition.success) {
                 switch (parser.name) {
                     case StatementType::VARIABLE_ASSIGN: {
+                        name_t name = condition.objects.at(0)->token.token;
+
                         condition.objects.erase(condition.objects.begin(),
                                                 condition.objects.begin() + 2);
 
                         Kan::Executor::compile_expression(stream, condition.objects);
+                        stream->set_name(name);
 
                         break;
                     }
@@ -378,6 +388,8 @@ Kan::Statements::CompileStream *Kan::Executor::compile(Kan::AstTree &tree) {
             }
         }
     }
+
+    stream->end_scope();
 
     return stream;
 }
