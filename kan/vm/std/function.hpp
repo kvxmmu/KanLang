@@ -15,12 +15,12 @@ namespace Kan::STD {
 
     class FunctionType : public Type {
     public:
-        static Object *_call(Object *args) {
+        static Object *_call(Object *args, void *, void *, void *) {
             auto arglist = reinterpret_cast<ListObject *>(args);
             auto self = reinterpret_cast<FunctionObject *>(arglist->at(0));
             auto func_args = arglist->at(1);
 
-            return self->callback(func_args);
+            return self->callback(func_args, nullptr, nullptr, 0);
         }
 
         FunctionType() {
@@ -35,7 +35,7 @@ namespace Kan::STD {
         DEFAULT_IS_SAME_FUNC()
     };
 
-    static self_pair_t getattr_default_callback(Object *self, name_t attr, Type *function_type) {
+    static self_pair_t getattr_default_callback(Object *self, const name_t &attr, Type *function_type) {
         if (self->type->has_method(attr)) {
             return std::make_pair(self, new FunctionObject(self->type->methods.at(attr), self,
                     function_type));

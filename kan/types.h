@@ -5,8 +5,8 @@
 #ifndef KANLANG_TYPES_H
 #define KANLANG_TYPES_H
 
-#include <string_view>
+#include <string>
 
-typedef std::string_view name_t;
+typedef std::string name_t;
 
 #endif //KANLANG_TYPES_H

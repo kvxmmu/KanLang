@@ -25,20 +25,24 @@ bool Kan::VM::is_empty_command(uint8_t command) {
     }
 }
 
-void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
+Object *Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream, vm_stdtypes_t *types,
+                               bool inside_function) {
     std::stack<vm_stack_object_t> stack;
     std::deque<Kan::Memory::Scope *> scopes;
 
-    ListType list_type;
-    IntType int_type;
-    FunctionType func_type;
-    StringType string_type;
-
+    auto &list_type = types->list_type;
+    auto &int_type = types->int_type;
+    auto &func_type = types->func_type;
+    auto &string_type = types->string_type;
+    auto &bool_type = types->bool_type;
+    auto &user_func_type = types->user_func_type;
 
     vm_stack_object_t left{};
     vm_stack_object_t right{};
 
-    while (stream->offset < stream->size()) {
+    bool running = true;
+
+    while (stream->offset < stream->size() && running) {
         auto type = stream->read_integral<uint8_t>();
 
         switch (type) {
@@ -47,7 +51,8 @@ void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
             case MULB:
             case DIVB:
             case UPLUS:
-            case UMINUS: {
+            case UMINUS:
+            case EQUALB: {
                 left = stack.top();
                 stack.pop();
 
@@ -82,25 +87,43 @@ void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
 
                         break;
 
+                    case EQUALB:
+                        object = new BoolObject(left_type->is_equals(left.object,
+                                                right.object), &bool_type);
+
+                        break;
+
                     default:
 
                         break;
                 }
 
                 if (left.is_literal) {
-                    left.object->deallocate();
+                    Object::safe_deallocate(left.object);
                 }
 
                 if (right.is_literal) {
-                    right.object->deallocate();
+                    Object::safe_deallocate(right.object);
                 }
 
                 if (left.is_literal || right.is_literal) {
-                    stack.push({object, true});
+                    stack.push({object, true, false});
                 } else {
                     stack.push(object);
                 }
 
+
+                break;
+            }
+
+            case PUSH_TRUE:{
+                stack.push(types->true_object);
+
+                break;
+            }
+
+            case PUSH_FALSE: {
+                stack.push(types->false_object);
 
                 break;
             }
@@ -110,13 +133,18 @@ void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
                 auto integral = stream->read_integral<int>();
                 auto int_object = new IntObject(&int_type, integral);
 
-                stack.push({int_object, true});
+                stack.push({int_object, true, false});
 
                 break;
             }
 
             case START_SCOPE: {
                 auto scope = new Kan::Memory::Scope;
+
+                if (types->global_scope == nullptr) {
+                    types->global_scope = scope;
+                    types->initializer(scope, types);
+                }
 
                 if (!scopes.empty()) {
                     scope->parent_scope = scopes.back();
@@ -144,6 +172,10 @@ void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
 
                 top_scope->set_name(name, object.object);
 
+                if (object.object != nullptr) {
+                    object.object->xincref();
+                }
+
                 stack.pop();
 
                 break;
@@ -153,7 +185,7 @@ void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
                 auto str = stream->get_string_with_size();
                 auto string = new StringObject(str, &string_type);
 
-                stack.push({string, true});
+                stack.push({string, true, str.empty()});
 
                 break;
             }
@@ -174,7 +206,7 @@ void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
                 auto object_type = object.object->type;
                 stack.pop();
 
-                getattr_callback_t getattr_cb = nullptr;
+                getattr_callback_t getattr_cb;
 
                 if (object_type->getattr == nullptr) {
                     getattr_cb = Kan::STD::getattr_default_callback;
@@ -188,28 +220,62 @@ void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
                 stack.push(attr_object);
 
                 if (object.is_literal) {
-                    object.object->deallocate();
+                    Object::safe_deallocate(object.object);
                 }
 
                 break;
             }
 
+            case RET_NULL: {
+                stack.push(nullptr);
+                running = false;
+
+                break;
+            }
+
+            case RET: {
+                running = false;
+
+                break;
+            }
+
             case CALLB: {
-                auto object = stack.top();
-                auto object_type = object.object->type;
-                stack.pop();
+                auto args_count = stream->read_integral<uint32_t>();
+
+                std::vector<vm_stack_object_t> args;
 
                 auto temp_list = new ListObject(&list_type);
                 auto func_args = new ListObject(&list_type);
+
+                for (size_t arg_num = 0; arg_num < args_count; arg_num++) {
+                    auto argument = stack.top();
+
+                    stack.pop();
+
+                    args.push_back(argument);
+                }
+
+                auto object = stack.top();
+                auto object_type = object.object->type;
+                stack.pop();
 
                 if (object.self != nullptr) {
                     func_args->objects.push_back(object.self);
                 }
 
+                for (auto &arg : args) {
+                    func_args->objects.push_back(arg.object);
+                }
+
                 temp_list->objects.push_back(object.object);
                 temp_list->objects.push_back(func_args);
 
-                auto response = object_type->call(temp_list);
+                size_t before_state = stream->tell();
+
+                auto response = object_type->call(temp_list, scopes.back(),
+                        stream, types);
+
+                stream->seek(before_state);
 
                 temp_list->deallocate();
                 func_args->deallocate();
@@ -218,7 +284,102 @@ void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
                     object.object->deallocate();
                 }
 
+                for (auto &arg : args) {
+                    if (arg.is_literal) {
+                        Object::safe_deallocate(arg.object);
+                    }
+                }
+
+                args.clear();
+
                 stack.push(response);
+
+                break;
+            }
+
+            case POP_OBJECT: {
+                auto obj = stack.top();
+
+                if (obj.is_literal) {
+                    Object::safe_deallocate(obj.object);
+                } else if (obj.object != nullptr && obj.object->refs == 0) {
+                    obj.object->deallocate();
+                }
+
+                stack.pop();
+
+                break;
+            }
+
+            case JMP_BACK: {
+                auto offset = stream->read_integral<uint32_t>();
+
+                stream->seek(stream->tell()-offset);
+
+                break;
+            }
+
+            case JMP_NEXT: {
+                auto offset = stream->read_integral<uint32_t>();
+
+                stream->seek(stream->tell()+offset);
+
+                break;
+            }
+
+            case DEFINE_FUNCTION: {
+                auto function_length = stream->read_integral<uint32_t>();
+                auto name_size = stream->read_integral<uint8_t>();
+                auto argscount = stream->read_integral<uint8_t>();
+                auto function_name = stream->get_string(name_size);
+
+                auto user_func_obj = new UserFunctionObject(0, function_length,
+                                                            user_func_type, {});
+
+                for (size_t argnum = 0; argnum < argscount; argnum++) {
+                    auto sig = stream->read_argument_signature();
+
+                    user_func_obj->signature.push_back(sig);
+                }
+
+                user_func_obj->address = stream->tell();
+                scopes.back()->set_name(function_name, user_func_obj);
+
+                stream->seek(stream->tell()+function_length);
+
+                break;
+            }
+
+            case JMP_TO_ADDRESS: {
+                auto address = stream->read_integral<uint64_t>();
+
+                stream->seek(address);
+
+                break;
+            }
+
+            case JMP_IF_FALSE: {
+                auto offset = stream->read_integral<uint32_t>();
+                auto top_obj = stack.top();
+
+                if (top_obj.object == nullptr ||
+                    !top_obj.object->type->get_bool(top_obj.object)) {
+                    stream->seek(stream->tell()+offset);
+
+                    break;
+                }
+
+                break;
+            }
+
+            case JMP_IF_TRUE: {
+                auto offset = stream->read_integral<uint32_t>();
+                auto top_obj = stack.top();
+
+                if (top_obj.object != nullptr &&
+                    top_obj.object->type->get_bool(top_obj.object)) {
+                    stream->seek(stream->tell()+offset);
+                }
 
                 break;
             }
@@ -241,11 +402,17 @@ void Kan::VM::kanvm_execute(Kan::Statements::CompileStream *stream) {
         }
     }
 
+    if (inside_function) {
+        return stack.top().object;
+    }
+
     while (!stack.empty()) {
         auto object = stack.top();
 
         stack.pop();
 
-        object.object->deallocate();
+        Object::safe_deallocate(object.object);
     }
+
+    return nullptr;
 }

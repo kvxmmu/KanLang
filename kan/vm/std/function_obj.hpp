@@ -12,10 +12,10 @@ namespace Kan::STD {
 
     class FunctionObject : public Object {
     public:
-        c_callback_t callback;
+        call_t callback;
         Object *parent;
 
-        FunctionObject(c_callback_t _callback,
+        FunctionObject(call_t _callback,
                 Object *_parent, Type *_type) : Object(_type), callback(_callback), parent(_parent) {
 
         }

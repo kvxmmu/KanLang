@@ -15,7 +15,7 @@
 #include <type_traits>
 
 namespace Kan::Statements {
-    typedef std::string_view name_t;
+    typedef std::string name_t;
 
     class CompileStream {
     public:
@@ -43,10 +43,27 @@ namespace Kan::Statements {
 
         virtual void write_to_stream(const char *_data, size_t size) = 0;
         virtual void read_from_stream(char *dest, size_t size) = 0;
+        virtual void replace_data(const char *_data, size_t size) = 0;
+
         virtual size_t size() { return 0; }
 
         void push_empty_command(uint8_t command_type) {
             this->write_integral<uint8_t>(command_type);
+        }
+
+        template <typename Integral>
+        void push_command_with_arg(uint8_t command_type, Integral integral) {
+            this->write_integral<uint8_t>(command_type);
+            this->write_integral<Integral>(integral);
+        }
+
+        template <typename Integral>
+        void replace_integral(Integral integral) {
+            char bin[sizeof(Integral)];
+
+            int_to_bytes<Integral>(integral, bin);
+
+            this->replace_data(bin, sizeof(Integral));
         }
 
         void push_sized_command(uint8_t command_type, const char *_data,
@@ -54,10 +71,6 @@ namespace Kan::Statements {
             this->write_integral<uint8_t>(command_type);
             this->write_integral<uint16_t>(size);
             this->write_to_stream(_data, size);
-        }
-
-        void get_attribute() {
-            this->push_empty_command(GET_ATTRIBUTEB);
         }
 
         void get_attribute(std::string_view attr) {
@@ -114,14 +127,82 @@ namespace Kan::Statements {
         void pow() { this->push_empty_command(POWB); }
         void div() { this->push_empty_command(DIVB); }
         void mul() { this->push_empty_command(MULB); }
-        void call() { this->push_empty_command(CALLB); }
+        void call(uint32_t argscount) { this->push_command_with_arg(CALLB, argscount); }
         void uminus() { this->push_empty_command(UMINUS); }
         void uplus() { this->push_empty_command(UPLUS); }
         void start_scope() { this->push_empty_command(START_SCOPE); }
         void end_scope() { this->push_empty_command(END_SCOPE); }
+        void jmp_if_false(uint32_t _offset) { this->push_command_with_arg(JMP_IF_FALSE, _offset); }
+        void pop_object() { this->push_empty_command(POP_OBJECT); }
+        void else_block(uint32_t _offset) {
+            this->replace_last_empty_command(JMP_IF_TRUE);
+            this->write_integral<uint32_t>(_offset);
+        }
+        void jmp_to_address(uint64_t address) {
+            this->push_command_with_arg(JMP_TO_ADDRESS, address);
+        }
+        void ret() { this->push_empty_command(RET); }
+        void ret_null() { this->push_empty_command(RET_NULL); }
+        void push_true() { this->push_empty_command(PUSH_TRUE); }
+        void push_false() { this->push_empty_command(PUSH_FALSE); }
+
+        void define_function(uint32_t length, const std::string &name,
+                uint8_t argscount) {
+            this->push_command_with_arg(DEFINE_FUNCTION, length);
+            this->write_integral<uint8_t>(name.size());
+            this->write_integral<uint8_t>(argscount);
+            this->write_to_stream(name.c_str(), name.size());
+        }
+
+        void add_argument_signature(const std::string &name) {
+            this->write_integral<uint8_t>(name.size());
+            this->write_to_stream(name.c_str(), name.size());
+        }
+
+        std::string read_argument_signature() {
+            auto length = this->read_integral<uint8_t>();
+            auto str = this->get_string(length);
+
+            return str;
+        }
+
+        void lesser() { this->push_empty_command(LESSERB); }
+        void greater() { this->push_empty_command(GREATERB); }
+        void lesser_or_equal() { this->push_empty_command(LESSER_OR_EQUALB); }
+        void greater_or_equal() { this->push_empty_command(GREATER_OR_EQUALB); }
+        void equal() { this->push_empty_command(EQUALB); }
+
+        void replace_last_empty_command(uint8_t to) {
+            this->seek(this->tell()-1u);
+
+            this->replace_integral<uint8_t>(to);
+        }
+
+        void copy_stream_buffer(CompileStream *_stream) {
+            char buff[4096]; // 4kb copy buffer
+            size_t sz = _stream->count();
+
+            while (sz > 0) {
+                size_t block = 4096;
+
+                if (sz < block) {
+                    block = sz;
+                }
+
+                _stream->read_from_stream(buff, block);
+
+                sz -= block;
+
+                this->write_to_stream(buff, block);
+            }
+        }
 
         virtual size_t tell() {
             return this->offset;
+        }
+
+        virtual size_t count() {
+            return this->size() - this->offset;
         }
 
         virtual void seek(size_t to_pos) {
@@ -140,6 +221,14 @@ namespace Kan::Statements {
         void write_to_stream(const char *_data, size_t size) override {
             this->bin_data.insert(this->bin_data.begin()+this->offset,
                                   _data, _data+size);
+
+            this->offset += size;
+        }
+
+        void replace_data(const char *_data, size_t size) override {
+            for (size_t pos = 0; pos < size; pos++) {
+                this->bin_data[pos+this->offset] = _data[pos];
+            }
 
             this->offset += size;
         }

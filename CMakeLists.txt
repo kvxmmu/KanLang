@@ -9,6 +9,8 @@ add_library(kanlang_parser kan/parser.cpp
         kan/parser.hpp kan/semantic.cpp kan/semantic.hpp
         kan/kan_semantic.cpp kan/kan_semantic.hpp)
 
+add_definitions(-g)
+
 add_library(kanlang_executor kan/executor/compiler.cpp
         kan/executor/compiler.hpp
         kan/executor/statements_class.hpp kan/executor/statements_class.cpp)

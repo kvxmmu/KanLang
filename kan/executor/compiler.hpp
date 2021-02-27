@@ -18,6 +18,7 @@
 #include "../types.h"
 
 #define IF_NAME "if"
+#define ELSE_NAME "else"
 #define FUNC_NAME "func"
 #define CLASS_NAME "class"
 #define IMPORT_NAME "import"
@@ -29,6 +30,7 @@
 #define HIGH_PRIORITY 3u
 #define VHIGH_PRIORITY 4u
 #define TOP_PRIORITY 5u
+#define VTOP_PRIORITY 6u
 
 #define CHECK_AND_SET_PRIORITY(priority, pos, _type) if (max_priority < priority) {\
     max_priority = priority; \
@@ -42,6 +44,8 @@ enum StatementType {
     FUNCTION,
     CLASS,
     IMPORT,
+    ELSE,
+    ELSEIF,
 
     EXPRESSION
 };
@@ -60,7 +64,7 @@ namespace Kan::Executor {
     };
 
     struct SyntaxError : public std::runtime_error {
-        SyntaxError() : std::runtime_error("Invalid syntax") {
+        SyntaxError(size_t n = 0) : std::runtime_error("Invalid syntax "+std::to_string(n)) {
 
         }
     };
@@ -73,8 +77,11 @@ namespace Kan::Executor {
     priority_t get_priority(const ast_objects_t::value_type &object);
     bool is_operator(const ast_objects_t::value_type &object);
 
-    void compile_expression(Kan::Statements::CompileStream *stream,
-            ast_objects_t &objects);
+    std::vector<ast_objects_t> split_by_token(const ast_objects_t &objects,
+                                              TokenTypes token_type);
+
+    uint32_t compile_expression(Kan::Statements::CompileStream *stream,
+                                ast_objects_t &objects, bool is_arguments=false);
     bool is_integral_type(const Token &token);
     void compile_literal(const Token &literal, Kan::Statements::CompileStream *stream,
             bool is_attribute = false);
@@ -84,8 +91,11 @@ namespace Kan::Executor {
     void compile_brackets(Kan::Statements::CompileStream *stream,
                                          const ast_objects_t::value_type &obj, size_t pos,
                                          ast_objects_t &objects);
+    size_t compile_function_signature(Kan::Statements::CompileStream *stream,
+            const ast_objects_t &objects);
 
-    Kan::Statements::CompileStream *compile(Kan::AstTree &tree);
+    void compile(Kan::AstTree &tree, Kan::Statements::CompileStream *stream,
+            bool create_scope = true, bool is_function = false);
 }
 
 

@@ -31,7 +31,7 @@ namespace Kan {
         bool until_statement = false;
 
         [[maybe_unused]] explicit StatementCondition(TokenTypes _token_type,
-                std::string_view _string = "") : token_type(_token_type), type(AstType::TOKEN), string(_string) {
+                const char *_string = "") : token_type(_token_type), type(AstType::TOKEN), string(_string) {
 
         }
 
@@ -104,13 +104,13 @@ namespace Kan {
                         auto &token = object->token;
 
                         if (token.token != condition.string) {
-                            break;
+                            return {false, {}};
                         }
                     }
 
                     objects.push_back(object);
                 } else {
-                    break;
+                    return {false, {}};
                 }
             }
 

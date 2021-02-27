@@ -42,6 +42,8 @@ namespace Kan {
         EQUALEQUAL,
         GREATER_OR_EQUAL,
         LESSER_OR_EQUAL,
+        GREATER,
+        LESSER,
         NOT_EQUAL,
 
         // Brackets
@@ -95,7 +97,7 @@ namespace Kan {
     class Token {
     public:
         std::string token;
-        TokenTypes token_types;
+        TokenTypes token_types = TokenTypes::SKIP;
 
         Token() = default;
 
@@ -129,7 +131,7 @@ namespace Kan {
         }
 
         bool is_empty_token() {
-            return this->token.token.empty();
+            return this->token.token_types == TokenTypes::SKIP;
         }
 
         AstObject(void *_ptr,
@@ -303,6 +305,7 @@ namespace Kan {
             bool parse_string(string_iterator_t &it, tokens_t &tokens) {
                 std::string str;
                 char chr;
+                bool string_ended = false;
 
                 size_t offset = 0;
 
@@ -320,6 +323,8 @@ namespace Kan {
                     }
 
                     if (chr == '"' || chr == NULLCHR) {
+                        string_ended = true;
+
                         break;
                     }
 
@@ -353,7 +358,7 @@ namespace Kan {
                     offset++;
                 }
 
-                bool result = !str.empty();
+                bool result = string_ended;
 
                 if (result) {
                     it.next(offset+1u);

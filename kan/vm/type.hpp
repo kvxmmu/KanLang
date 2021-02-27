@@ -10,6 +10,7 @@
 #include <memory>
 
 #include <unordered_map>
+#include <stdexcept>
 
 #include "mem_allocator.hpp"
 
@@ -28,9 +29,9 @@ namespace Kan::VM {
     class Type;
 
     typedef std::pair<Object *, Object *> self_pair_t;
-    typedef std::string_view name_t;
+    typedef std::string name_t;
     typedef Object *(*c_callback_t)(Object *);
-    typedef self_pair_t(*getattr_callback_t)(Object *, name_t, Type *);
+    typedef self_pair_t(*getattr_callback_t)(Object *, const name_t &, Type *);
     typedef Object *(*getitem_t)(Object *);
     typedef Object *(*dir_t)(Object *);
     typedef Object *(*construct_t)(Object *);
@@ -39,10 +40,17 @@ namespace Kan::VM {
     typedef Object *(*mul_t)(Object *, Object *);
     typedef Object *(*sub_t)(Object *, Object *);
     typedef Object *(*div_op_t)(Object *, Object *);
+    typedef Object *(*call_t)(Object *, void *, void *, void *); // args, additional args
+
+    struct UnimplementedError : public std::runtime_error {
+        UnimplementedError() : std::runtime_error("Unimplemented") {
+
+        }
+    };
 
     class Type {
     public:
-        std::unordered_map<name_t, c_callback_t> methods;
+        std::unordered_map<name_t, call_t> methods;
 
         getattr_callback_t getattr = nullptr;
         getitem_t getitem = nullptr;
@@ -53,9 +61,9 @@ namespace Kan::VM {
         mul_t mul = nullptr;
         sub_t sub = nullptr;
         div_op_t div = nullptr;
-        c_callback_t call = nullptr;
+        call_t call = nullptr;
 
-        void add_method(name_t name, const c_callback_t &callback) {
+        void add_method(name_t name, const call_t &callback) {
             this->methods[name] = callback;
         }
 
@@ -66,17 +74,49 @@ namespace Kan::VM {
         virtual bool has_method(name_t method) {
             return this->methods.find(method) != this->methods.end();
         }
+
+        virtual bool get_bool(Object *self) {
+            return self != nullptr;
+        }
+
+        virtual std::string repr(Object *self) {
+            return this->get_type_name();
+        }
+
+        virtual bool is_equals(Object *self, Object *value) {
+            return self == value;
+        }
+
+        virtual bool is_greater_than(Object *self, Object *value) {
+            throw UnimplementedError();
+        }
+
+        virtual bool is_lesser_than(Object *self, Object *value) {
+            throw UnimplementedError();
+        }
     };
 
     class Object {
     public:
         Type *type;
-        size_t refs = 1;
+        size_t refs = 0;
 
         Object(Type *_type) : type(_type) {}
 
         void deallocate() {
             this->type->free(this);
+        }
+
+        static void safe_deallocate(Object *_object) {
+            if (_object == nullptr) {
+                return;
+            }
+
+            _object->deallocate();
+        }
+
+        void xincref() {
+            this->refs++;
         }
 
         ~Object() {

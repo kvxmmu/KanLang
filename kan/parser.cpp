@@ -43,7 +43,7 @@ std::vector<Kan::Token> Kan::parse_tokens(std::string_view code,
         if (!success) {
             std::cout << "Pohui " << it.pos << std::endl;
 
-            return {};
+            throw std::runtime_error(std::string("Unknown token: ")+code.at(it.pos));
         } else {
             success = false;
         }

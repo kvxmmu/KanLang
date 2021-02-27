@@ -25,19 +25,29 @@ namespace Kan::STD {
 
     class StringType : public Type {
     public:
-        static Object *print(Object *args) {
-            auto arglist = reinterpret_cast<ListObject *>(args);
-            auto self = reinterpret_cast<StringObject *>(arglist->at(0));
+        bool get_bool(Object *object) override {
+            auto str = reinterpret_cast<StringObject *>(object);
 
-            std::cout << self->str << std::endl;
+            return !str->str.empty();
         }
 
-        StringType() {
-            this->add_method("print", StringType::print);
+        std::string repr(Object *self) override {
+            return reinterpret_cast<StringObject *>(self)->str;
+        }
+
+        bool is_equals(Object *self, Object *value) override {
+            if (!value->type->is_same_type(this)) {
+                return false;
+            }
+
+            auto self_str = reinterpret_cast<StringObject *>(self);
+            auto value_str = reinterpret_cast<StringObject *>(value);
+
+            return self_str->str == value_str->str;
         }
 
         name_t get_type_name() override {
-            return typeid(*this).name();
+            return CLASSNAME;
         }
 
         DEFAULT_FREE_FUNC(StringObject)
