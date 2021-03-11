@@ -72,6 +72,10 @@ operation_pair_t Kan::Executor::get_operation(ast_iterator_t &it) {
             CHECK_AND_SET_PRIORITY(get_priority(first), offset, BRACKETS)
         }
 
+        if (first->is_tree() && second->check_token_type(TokenTypes::DOT)) {
+            CHECK_AND_SET_PRIORITY(VTOP_PRIORITY, offset, BRACKETS)
+        }
+
         CHECK_AND_SET_PRIORITY(get_priority(second), offset, BINARY_OP)
 
         offset+=2;
@@ -402,7 +406,7 @@ void Kan::Executor::compile_literal(const Token &literal, Kan::Statements::Compi
 }
 
 size_t Kan::Executor::compile_function_signature(Kan::Statements::CompileStream *stream,
-                                                 const ast_objects_t &objects) {
+                                                 const ast_objects_t &objects, std::vector<std::string> &sig_go) {
     auto args = split_by_token(objects, TokenTypes::COMMA);
     size_t argcount = 0;
 
@@ -417,6 +421,7 @@ size_t Kan::Executor::compile_function_signature(Kan::Statements::CompileStream 
             throw SyntaxError(2);
         }
 
+        sig_go.insert(sig_go.begin(), name->token.token);
         stream->add_argument_signature(name->token.token);
 
         argcount++;
@@ -426,7 +431,7 @@ size_t Kan::Executor::compile_function_signature(Kan::Statements::CompileStream 
 }
 
 void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *stream,
-        bool create_scope, bool is_function) {
+        bool create_scope, bool is_function, bool is_class) {
     ast_iterator_t it(tree.objects);
 
     if (create_scope) {
@@ -464,11 +469,11 @@ void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *
                 stmt_cond(TreeType::BRACES)
              }, StatementType::FUNCTION),
 //
-//        stmt({
-//                     stmt_cond(TokenTypes::ID, CLASS_NAME),
-//                     stmt_cond(TokenTypes::ID),
-//                     stmt_cond(TreeType::BRACES)
-//             }, StatementType::CLASS),
+        stmt({
+                 stmt_cond(TokenTypes::ID, CLASS_NAME),
+                 stmt_cond(TokenTypes::ID),
+                 stmt_cond(TreeType::BRACES)
+             }, StatementType::CLASS),
 //
 //        stmt({
 //                     stmt_cond(TokenTypes::ID, IMPORT_NAME),
@@ -525,14 +530,23 @@ void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *
                         Statements::VectorCompileStream cstream;
                         Statements::VectorCompileStream argstream;
 
+                        std::vector<std::string> string_sig;
+                        uint8_t argscount = Kan::Executor::compile_function_signature(&argstream, func_args, string_sig);
+
+
+
                         Kan::Executor::compile(*func_block, &cstream, true, true); // every function need his own scope!
-                        size_t argscount = Kan::Executor::compile_function_signature(&argstream, func_args);
 
                         cstream.seek(0);
                         argstream.seek(0);
 
-                        stream->define_function(cstream.size(),
-                                func_name, argscount);
+                        if (!is_class) {
+                            stream->define_function(cstream.size(),
+                                                    func_name, argscount);
+                        } else {
+                            stream->add_class_method(func_name, cstream.size(), argscount);
+                        }
+
                         stream->copy_stream_buffer(&argstream);
                         stream->copy_stream_buffer(&cstream);
 
@@ -560,6 +574,23 @@ void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *
                                 condition.objects, false);
 
                         stream->pop_object();
+
+                        break;
+                    }
+
+                    case StatementType::CLASS: {
+                        auto class_name = condition.objects.at(1);
+                        auto class_code = condition.objects.at(2);
+
+                        Statements::VectorCompileStream cstream;
+                        compile(*class_code->tree,
+                                &cstream, false, false, true);
+
+                        cstream.seek(0);
+
+                        stream->create_class(class_name->token.token,
+                                cstream.size());
+                        stream->copy_stream_buffer(&cstream);
 
                         break;
                     }

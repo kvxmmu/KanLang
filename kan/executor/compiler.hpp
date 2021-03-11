@@ -92,10 +92,11 @@ namespace Kan::Executor {
                                          const ast_objects_t::value_type &obj, size_t pos,
                                          ast_objects_t &objects);
     size_t compile_function_signature(Kan::Statements::CompileStream *stream,
-            const ast_objects_t &objects);
+            const ast_objects_t &objects, std::vector<std::string> &sig_go);
 
     void compile(Kan::AstTree &tree, Kan::Statements::CompileStream *stream,
-            bool create_scope = true, bool is_function = false);
+            bool create_scope = true, bool is_function = false,
+            bool is_class = false);
 }
 
 

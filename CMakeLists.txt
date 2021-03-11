@@ -15,7 +15,9 @@ add_library(kanlang_executor kan/executor/compiler.cpp
         kan/executor/compiler.hpp
         kan/executor/statements_class.hpp kan/executor/statements_class.cpp)
 
-add_library(kanlang_vm kan/vm/vm.cpp kan/vm/vm.hpp)
+add_library(kanlang_vm kan/vm/vm.cpp kan/vm/vm.hpp
+        kan/vm/type.cpp kan/vm/type.hpp
+        kan/vm/scope.cpp kan/vm/scope.hpp)
 
 add_executable(kan main.cpp)
 

@@ -371,7 +371,7 @@ namespace Kan {
 
             bool parse_id(string_iterator_t &it, tokens_t &tokens) {
                 std::string id;
-                static std::string_view allowed_chars = "_qwertyuiopasdfghjklzxcvbnm0123456789";
+                static std::string_view allowed_chars = "_qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM0123456789";
 
                 size_t offset = 0;
                 char chr;

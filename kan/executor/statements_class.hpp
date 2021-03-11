@@ -110,16 +110,22 @@ namespace Kan::Statements {
                     name.size());
         }
 
+        void push_buffered_command(uint8_t type, char *buffer, size_t bufflen) {
+            this->write_integral<uint8_t>(type);
+            this->write_to_stream(buffer, bufflen);
+        }
+
         template <typename T1>
         void push_integral(T1 integral) {
-            char bin[sizeof(T1)];
+            char bin[1+sizeof(T1)];
 
             memset(bin, 0, sizeof(T1)+1u);
 
-            int_to_bytes<T1>(integral, bin);
+            int_to_bytes<T1>(integral, bin+1);
+            bin[0] = static_cast<uint8_t>(std::is_same<T1, float>::value);
 
-            this->push_sized_command(PUSH_INTEGRAL, bin,
-                                     sizeof(T1));
+            this->push_buffered_command(PUSH_INTEGRAL, bin,
+                                        sizeof(T1)+1);
         }
 
         void plus() { this->push_empty_command(PLUSB); }
@@ -154,6 +160,21 @@ namespace Kan::Statements {
             this->write_to_stream(name.c_str(), name.size());
         }
 
+        void create_class(const std::string &name,
+                          uint64_t length) {
+            this->write_integral<uint8_t>(CREATE_TYPE);
+            this->write_integral<uint8_t>(name.size());
+            this->write_integral<uint64_t>(length);
+            this->write_to_stream(name.c_str(), name.size());
+        }
+
+        void add_class_method(const std::string &name, uint32_t length, uint8_t argscount) {
+            this->write_integral<uint8_t>(name.size());
+            this->write_integral<uint32_t>(length);
+            this->write_integral<uint8_t>(argscount);
+            this->write_to_stream(name.c_str(), name.size());
+        }
+
         void add_argument_signature(const std::string &name) {
             this->write_integral<uint8_t>(name.size());
             this->write_to_stream(name.c_str(), name.size());
@@ -164,6 +185,22 @@ namespace Kan::Statements {
             auto str = this->get_string(length);
 
             return str;
+        }
+
+        void get_from_stack_and_assign(const std::string &name) {
+            this->write_integral<uint8_t>(GET_FROM_STACK_AND_ASSIGN);
+            this->write_integral<uint8_t>(name.size());
+            this->write_to_stream(name.c_str(), name.size());
+        }
+
+        std::vector<std::string> read_signature(uint8_t argscount) {
+            std::vector<std::string> sig;
+
+            for (uint8_t pos = 0; pos < argscount; pos++) {
+                sig.push_back(this->read_argument_signature());
+            }
+
+            return sig;
         }
 
         void lesser() { this->push_empty_command(LESSERB); }

@@ -3,7 +3,7 @@
 #include "kan/easy.hpp"
 
 int main() {
-    auto code = "print(\"huita\");";
+    auto code = "b = 2+2;";
     Kan::run(code);
 
     return 0;

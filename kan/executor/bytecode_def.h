@@ -37,6 +37,9 @@
 #define RET_NULL 30u
 #define PUSH_TRUE 31u
 #define PUSH_FALSE 32u
+#define CREATE_TYPE 33u
+#define CREATE_METHOD 34u
+#define GET_FROM_STACK_AND_ASSIGN 35u
 
 // FORMAT:
 /*
