@@ -14,6 +14,8 @@ void Kan::Memory::Scope::set_name(const Kan::Memory::name_t &name, Object *objec
         } else {
             return;
         }
+    } else {
+        object->refs++;
     }
 
     this->names[name] = object;
@@ -55,6 +57,22 @@ void Kan::Memory::Scope::decref_names() {
     for (auto &name : names_vec) {
         this->decref_name(name);
     }
+}
+
+Object *Kan::Memory::Scope::get_name(const Kan::Memory::name_t &name) const {
+    return this->names.at(name);
+}
+
+Object *Kan::Memory::Scope::lookup_name(const Kan::Memory::name_t &name) const {
+    if (!this->has_name(name)) {
+        if (this->parent_scope == nullptr) {
+            return nullptr;
+        }
+
+        return this->parent_scope->lookup_name(name);
+    }
+
+    return this->get_name(name);
 }
 
 ////

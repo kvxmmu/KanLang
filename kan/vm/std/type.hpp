@@ -13,12 +13,18 @@ static std::string _typerepr(Object *self) {
 }
 
 template <typename T>
-Type *KanType_GetType(const std::function<void(Type *)> callback = nullptr) {
+static Type *KanType_GetType(const std::function<void(Type *)> callback = nullptr) {
     auto type = type_allocator.allocate_or_get<T>(callback);
 
-    type->repr = _typerepr;
-
     return type;
+}
+
+static bool KanObject_GetBool(Object *object) {
+    if (object->type->boolean == nullptr) {
+        return false;
+    }
+
+    return object->type->boolean(object);
 }
 
 

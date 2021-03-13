@@ -16,6 +16,11 @@ namespace Kan::Memory {
     class Scope {
     public:
         std::unordered_map<name_t, Object *> names;
+        Scope *parent_scope;
+
+        explicit Scope(Scope *_parent_scope = nullptr) : parent_scope(_parent_scope) {
+
+        }
 
         bool has_name(const name_t &name) const;
         bool is_same_object(const name_t &name, Object *object) const;
@@ -23,6 +28,9 @@ namespace Kan::Memory {
         void set_name(const name_t &name, Object *object);
         void decref_name(const name_t &name);
         void incref_name(const name_t &name);
+
+        Object *get_name(const name_t &name) const;
+        Object *lookup_name(const name_t &name) const;
 
         void decref_names();
     };

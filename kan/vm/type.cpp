@@ -6,6 +6,8 @@
 
 bool KanObject_XDecref(_Object *object) {
     if (object->refs <= 1) {
+        object->refs = 0;
+
         return true;
     }
 

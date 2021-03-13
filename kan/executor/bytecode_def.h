@@ -40,6 +40,7 @@
 #define CREATE_TYPE 33u
 #define CREATE_METHOD 34u
 #define GET_FROM_STACK_AND_ASSIGN 35u
+#define PUSH_NONE 36u
 
 // FORMAT:
 /*

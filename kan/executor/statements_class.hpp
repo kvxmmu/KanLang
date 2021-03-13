@@ -44,6 +44,7 @@ namespace Kan::Statements {
         virtual void write_to_stream(const char *_data, size_t size) = 0;
         virtual void read_from_stream(char *dest, size_t size) = 0;
         virtual void replace_data(const char *_data, size_t size) = 0;
+        virtual const char *get_buffer() = 0;
 
         virtual size_t size() { return 0; }
 
@@ -105,7 +106,7 @@ namespace Kan::Statements {
                                      string.size());
         }
 
-        void set_name(name_t name) {
+        void set_name(const name_t &name) {
             this->push_sized_command(SET_NAME, name.data(),
                     name.size());
         }
@@ -133,7 +134,7 @@ namespace Kan::Statements {
         void pow() { this->push_empty_command(POWB); }
         void div() { this->push_empty_command(DIVB); }
         void mul() { this->push_empty_command(MULB); }
-        void call(uint32_t argscount) { this->push_command_with_arg(CALLB, argscount); }
+        void call(uint8_t argscount) { this->push_command_with_arg(CALLB, argscount); }
         void uminus() { this->push_empty_command(UMINUS); }
         void uplus() { this->push_empty_command(UPLUS); }
         void start_scope() { this->push_empty_command(START_SCOPE); }
@@ -151,10 +152,11 @@ namespace Kan::Statements {
         void ret_null() { this->push_empty_command(RET_NULL); }
         void push_true() { this->push_empty_command(PUSH_TRUE); }
         void push_false() { this->push_empty_command(PUSH_FALSE); }
+        void push_none() { this->push_empty_command(PUSH_NONE); }
 
         void define_function(uint32_t length, const std::string &name,
                 uint8_t argscount) {
-            this->push_command_with_arg(DEFINE_FUNCTION, length);
+            this->push_command_with_arg<uint32_t>(DEFINE_FUNCTION, length);
             this->write_integral<uint8_t>(name.size());
             this->write_integral<uint8_t>(argscount);
             this->write_to_stream(name.c_str(), name.size());
@@ -246,9 +248,7 @@ namespace Kan::Statements {
             this->offset = to_pos;
         }
 
-        virtual ~CompileStream() {
-
-        }
+        virtual ~CompileStream() = default;
     };
 
     class VectorCompileStream : public CompileStream {
@@ -274,6 +274,10 @@ namespace Kan::Statements {
             memmove(dest, this->bin_data.data()+this->offset, size);
 
             this->offset += size;
+        }
+
+        const char * get_buffer() override {
+            return reinterpret_cast<const char *>(this->bin_data.data());
         }
 
         size_t size() override {
