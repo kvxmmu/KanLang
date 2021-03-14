@@ -42,6 +42,13 @@
 #define GET_FROM_STACK_AND_ASSIGN 35u
 #define PUSH_NONE 36u
 
+#define LEFT_SHIFTB 37u
+#define RIGHT_SHIFTB 38u
+#define BIN_ORB 39u
+#define BIN_ANDB 40u
+#define BIN_XORB 41u
+#define BIN_NOTB 42u
+
 // FORMAT:
 /*
  * ASSIGN_VARIABLE:

@@ -54,13 +54,20 @@ namespace Kan {
         OPEN_BRACE,
         CLOSE_BRACE,
 
-
         // Arithmetic operators
         PLUS,
         MINUS,
         MUL,
         DIV,
         POW,
+
+        // Bitwise operators
+        LEFT_SHIFT,
+        RIGHT_SHIFT,
+        BIN_OR,
+        BIN_AND,
+        BIN_XOR,
+        BIN_NOT,
 
         // Syntax unit
         SEMICOLON,
@@ -246,6 +253,13 @@ namespace Kan {
             ONE_CHAR_PARSER_DEF(',', comma, COMMA)
             ONE_CHAR_PARSER_DEF(':', colon, COLON)
 
+            ONE_CHAR_PARSER_DEF('|', bin_or, BIN_OR)
+            ONE_CHAR_PARSER_DEF('^', bin_xor, BIN_XOR)
+            ONE_CHAR_PARSER_DEF('&', bin_and, BIN_AND)
+            ONE_CHAR_PARSER_DEF('~', bin_not, BIN_NOT)
+            TWO_CHARS_PARSER_DEF('<', '<', left_shift, LEFT_SHIFT)
+            TWO_CHARS_PARSER_DEF('>', '>', right_shift, RIGHT_SHIFT)
+
             ONE_CHAR_PARSER_DEF('.', dot, DOT)
 
             bool parse_skip_char(string_iterator_t &it, tokens_t &) {
@@ -415,6 +429,13 @@ namespace Kan {
             minus,
             mul,
             div,
+
+            left_shift,
+            right_shift,
+            bin_or,
+            bin_xor,
+            bin_and,
+            bin_not,
 
             parse_number,
             parse_string,

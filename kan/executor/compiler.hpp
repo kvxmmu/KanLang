@@ -21,6 +21,7 @@
 #define ELSE_NAME "else"
 #define FUNC_NAME "func"
 #define CLASS_NAME "class"
+#define RETURN_NAME "return"
 #define IMPORT_NAME "import"
 
 #include "bytecode_def.h"
@@ -46,6 +47,7 @@ enum StatementType {
     IMPORT,
     ELSE,
     ELSEIF,
+    RETURN,
 
     EXPRESSION
 };
@@ -94,7 +96,7 @@ namespace Kan::Executor {
     size_t compile_function_signature(Kan::Statements::CompileStream *stream,
             const ast_objects_t &objects, std::vector<std::string> &sig_go);
 
-    void compile(Kan::AstTree &tree, Kan::Statements::CompileStream *stream,
+    bool compile(Kan::AstTree &tree, Kan::Statements::CompileStream *stream,
             bool create_scope = true, bool is_function = false,
             bool is_class = false);
 }

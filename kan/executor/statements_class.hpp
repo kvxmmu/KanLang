@@ -13,6 +13,7 @@
 #include "bytecode_def.h"
 
 #include <type_traits>
+#include <iostream>
 
 namespace Kan::Statements {
     typedef std::string name_t;
@@ -153,6 +154,12 @@ namespace Kan::Statements {
         void push_true() { this->push_empty_command(PUSH_TRUE); }
         void push_false() { this->push_empty_command(PUSH_FALSE); }
         void push_none() { this->push_empty_command(PUSH_NONE); }
+        void left_shift() { this->push_empty_command(LEFT_SHIFTB); }
+        void right_shift() { this->push_empty_command(RIGHT_SHIFTB); }
+        void bin_or() { this->push_empty_command(BIN_ORB); }
+        void bin_and() { this->push_empty_command(BIN_ANDB); }
+        void bin_xor() { this->push_empty_command(BIN_XORB); }
+        void bin_not() { this->push_empty_command(BIN_NOTB); }
 
         void define_function(uint32_t length, const std::string &name,
                 uint8_t argscount) {

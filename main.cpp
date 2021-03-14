@@ -2,6 +2,10 @@
 
 #include "kan/easy.hpp"
 
+#include <iostream>
+
+#include "kan/easy.hpp"
+
 int main() {
     std::string code;
 

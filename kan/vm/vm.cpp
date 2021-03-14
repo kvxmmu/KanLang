@@ -25,7 +25,11 @@ Object *Kan::VM::runcode(Kan::Statements::CompileStream *stream, vm_meta_t *meta
                 Object *object = nullptr;
 
                 if (integral_type) {
-                    object = KanInt_FromFloat(integral);
+                    float rfloat = 0.f;
+
+                    memcpy(&rfloat, &integral, sizeof(uint32_t));
+
+                    object = KanInt_FromFloat(rfloat);
                 } else {
                     object = KanInt_FromInt(integral);
                 }
@@ -33,6 +37,17 @@ Object *Kan::VM::runcode(Kan::Statements::CompileStream *stream, vm_meta_t *meta
                 KanObject_Incref(object);
 
                 stack.push(object);
+
+                break;
+            }
+
+            case PUSH_STRING: {
+                auto str = stream->get_string_with_size();
+                auto str_obj = KanString_FromString(str);
+
+                KanObject_Incref(str_obj);
+
+                stack.push(str_obj);
 
                 break;
             }
@@ -63,13 +78,24 @@ Object *Kan::VM::runcode(Kan::Statements::CompileStream *stream, vm_meta_t *meta
                 break;
             }
 
+            case RET: {
+                auto top = stack.top();
+
+                break;
+            }
+
             case PLUSB:
             case MINUSB:
             case MULB:
-            case DIVB:{
-                auto left = stack.top();
-                stack.pop();
+            case DIVB:
+            case LEFT_SHIFTB:
+            case RIGHT_SHIFTB:
+            case BIN_ORB:
+            case BIN_XORB:
+            case BIN_ANDB: {
                 auto right = stack.top();
+                stack.pop();
+                auto left = stack.top();
                 stack.pop();
 
                 auto lt = left->type;
@@ -85,6 +111,36 @@ Object *Kan::VM::runcode(Kan::Statements::CompileStream *stream, vm_meta_t *meta
 
                     case MINUSB: {
                         result = lt->sub(left, right);
+
+                        break;
+                    }
+
+                    case BIN_ORB: {
+                        result = lt->bin_or(left, right);
+
+                        break;
+                    }
+
+                    case LEFT_SHIFTB: {
+                        result = lt->left_shift(left, right);
+
+                        break;
+                    }
+
+                    case BIN_ANDB: {
+                        result = lt->bin_and(left, right);
+
+                        break;
+                    }
+
+                    case BIN_XORB: {
+                        result = lt->bin_xor(left, right);
+
+                        break;
+                    }
+
+                    case RIGHT_SHIFTB: {
+                        result = lt->right_shift(left, right);
 
                         break;
                     }
@@ -107,6 +163,45 @@ Object *Kan::VM::runcode(Kan::Statements::CompileStream *stream, vm_meta_t *meta
 
                 KanObject_Decref(right);
                 KanObject_Decref(left);
+                KanObject_Incref(result);
+
+                stack.push(result);
+
+                break;
+            }
+
+            case UPLUS:
+            case UMINUS:
+            case BIN_NOTB: {
+                auto top = stack.top();
+                stack.pop();
+
+                Object *result = nullptr;
+
+                switch (type) {
+                    case UPLUS: {
+                        result = top->type->pos(top);
+
+                        break;
+                    }
+
+                    case UMINUS: {
+                        result = top->type->neg(top);
+
+                        break;
+                    }
+
+                    case BIN_NOTB: {
+                        result = top->type->bin_not(top);
+
+                        break;
+                    }
+
+                    default:
+                        break;
+                }
+
+                KanObject_Decref(top);
                 KanObject_Incref(result);
 
                 stack.push(result);
@@ -146,6 +241,7 @@ Object *Kan::VM::runcode(Kan::Statements::CompileStream *stream, vm_meta_t *meta
 
             case RET_NULL: {
                 stack.push(meta->none_obj);
+                KanObject_Incref(meta->none_obj);
 
                 break;
             }
@@ -207,12 +303,21 @@ Object *Kan::VM::runcode(Kan::Statements::CompileStream *stream, vm_meta_t *meta
 
             case PUSH_TRUE: {
                 stack.push(meta->true_obj);
+                KanObject_Incref(meta->true_obj);
 
                 break;
             }
 
             case PUSH_FALSE: {
                 stack.push(meta->false_obj);
+                KanObject_Incref(meta->false_obj);
+
+                break;
+            }
+
+            case PUSH_NONE: {
+                stack.push(meta->none_obj);
+                KanObject_Incref(meta->none_obj);
 
                 break;
             }
@@ -229,8 +334,6 @@ Object *Kan::VM::runcode(Kan::Statements::CompileStream *stream, vm_meta_t *meta
     if (is_function) {
         ret = stack.top();
         stack.pop();
-
-        KanObject_Incref(ret);
     }
 
     for (auto cscope : scopes) {
@@ -243,7 +346,12 @@ Object *Kan::VM::runcode(Kan::Statements::CompileStream *stream, vm_meta_t *meta
         delete cscope;
     }
 
-    type_allocator.deallocate_all();
+    if (ret != nullptr) {
+    }
+
+    if (!is_function) {
+        type_allocator.deallocate_all();
+    }
 
     return ret;
 }

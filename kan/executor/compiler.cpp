@@ -37,7 +37,7 @@ operation_pair_t Kan::Executor::get_operation(ast_iterator_t &it) {
             }
 
             CHECK_AND_SET_PRIORITY(get_priority(first), offset, UNARY_OP)
-            CHECK_AND_SET_PRIORITY(get_priority(second), offset, BRACKETS)
+            CHECK_AND_SET_PRIORITY(get_priority(second), offset+1u, BRACKETS)
 
             offset++;
 
@@ -64,12 +64,12 @@ operation_pair_t Kan::Executor::get_operation(ast_iterator_t &it) {
             break;
         }
 
-        if (third->is_tree()) {
-            CHECK_AND_SET_PRIORITY(get_priority(third), offset+2u, BRACKETS)
-        }
-
         if (first->is_tree()) {
             CHECK_AND_SET_PRIORITY(get_priority(first), offset, BRACKETS)
+        }
+
+        if (third->is_tree()) {
+            CHECK_AND_SET_PRIORITY(get_priority(third), offset+2u, BRACKETS)
         }
 
         if (first->is_tree() && second->check_token_type(TokenTypes::DOT)) {
@@ -99,6 +99,12 @@ bool Kan::Executor::is_operator(const ast_objects_t::value_type &object) {
         case TokenTypes::EQUALEQUAL:
         case TokenTypes::GREATER:
         case TokenTypes::LESSER:
+        case TokenTypes::BIN_OR:
+        case TokenTypes::LEFT_SHIFT:
+        case TokenTypes::RIGHT_SHIFT:
+        case TokenTypes::BIN_XOR:
+        case TokenTypes::BIN_AND:
+        case TokenTypes::BIN_NOT:
             return true;
 
         default:
@@ -134,7 +140,8 @@ void Kan::Executor::compile_brackets(Kan::Statements::CompileStream *stream,
 
 bool Kan::Executor::is_unary_operator(ast_objects_t::value_type &object) {
     return is_operator(object) && (object->token.token_types == TokenTypes::MINUS ||
-                                   object->token.token_types == TokenTypes::PLUS);
+                                   object->token.token_types == TokenTypes::PLUS ||
+                                   object->token.token_types == TokenTypes::BIN_NOT);
 }
 
 uint32_t Kan::Executor::compile_expression(Kan::Statements::CompileStream *stream,
@@ -185,8 +192,10 @@ uint32_t Kan::Executor::compile_expression(Kan::Statements::CompileStream *strea
 
                 if (operator_->check_token_type(TokenTypes::PLUS)) {
                     stream->uplus();
-                } else {
+                } else if (operator_->check_token_type(TokenTypes::MINUS)) {
                     stream->uminus();
+                } else {
+                    stream->bin_not();
                 }
 
                 Kan::Executor::replace_object_with_empty_token(objects, pos, 2u);
@@ -202,15 +211,13 @@ uint32_t Kan::Executor::compile_expression(Kan::Statements::CompileStream *strea
                 if (first->is_tree()) {
                     Kan::Executor::compile_brackets(stream, first,
                                                     pos, objects);
-
-                    break;
+                } else {
+                    Kan::Executor::compile_literal(first->token, stream);
                 }
 
                 if (third->is_tree()) {
                     Kan::Executor::compile_brackets(stream, second,
                                                     pos+1u, objects);
-
-                    break;
                 }
 
                 if (second->token.token_types != TokenTypes::DOT) {
@@ -219,11 +226,35 @@ uint32_t Kan::Executor::compile_expression(Kan::Statements::CompileStream *strea
                     throw std::runtime_error("Syntax error 2u");
                 }
 
-                Kan::Executor::compile_literal(first->token, stream);
 
                 switch (second->token.token_types) {
                     case TokenTypes::PLUS:
                         stream->plus();
+
+                        break;
+
+                    case TokenTypes::LEFT_SHIFT:
+                        stream->left_shift();
+
+                        break;
+
+                    case TokenTypes::RIGHT_SHIFT:
+                        stream->right_shift();
+
+                        break;
+
+                    case TokenTypes::BIN_OR:
+                        stream->bin_or();
+
+                        break;
+
+                    case TokenTypes::BIN_XOR:
+                        stream->bin_xor();
+
+                        break;
+
+                    case TokenTypes::BIN_AND:
+                        stream->bin_and();
 
                         break;
 
@@ -276,6 +307,7 @@ uint32_t Kan::Executor::compile_expression(Kan::Statements::CompileStream *strea
                         break;
                 }
 
+
                 Kan::Executor::replace_object_with_empty_token(objects, pos, 3u);
 
                 break;
@@ -311,7 +343,7 @@ uint32_t Kan::Executor::compile_expression(Kan::Statements::CompileStream *strea
             }
 
             case ERROR:
-                std::cout << "Abort is a sin" << std::endl;
+                std::cout << "Syntax error" << std::endl;
 
                 abort();
 
@@ -341,6 +373,11 @@ priority_t Kan::Executor::get_operator_priority(const Token &token) {
         case TokenTypes::GREATER:
         case TokenTypes::LESSER:
         case TokenTypes::EQUALEQUAL:
+        case TokenTypes::LEFT_SHIFT:
+        case TokenTypes::RIGHT_SHIFT:
+        case TokenTypes::BIN_OR:
+        case TokenTypes::BIN_AND:
+        case TokenTypes::BIN_XOR:
             return LOW_PRIORITY;
 
         case TokenTypes::MUL:
@@ -393,6 +430,10 @@ void Kan::Executor::compile_literal(const Token &literal, Kan::Statements::Compi
             stream->push_false();
 
             return;
+        } else if (literal.token == "null" || literal.token == "None") {
+            stream->push_none();
+
+            return;
         }
 
         if (is_attribute) {
@@ -401,7 +442,7 @@ void Kan::Executor::compile_literal(const Token &literal, Kan::Statements::Compi
             stream->load_id(literal.token);
         }
     } else {
-        throw std::runtime_error("slava fisting anal");
+        throw std::runtime_error("Unknwon literal type");
     }
 }
 
@@ -430,7 +471,7 @@ size_t Kan::Executor::compile_function_signature(Kan::Statements::CompileStream 
     return argcount;
 }
 
-void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *stream,
+bool Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *stream,
         bool create_scope, bool is_function, bool is_class) {
     ast_iterator_t it(tree.objects);
 
@@ -438,7 +479,17 @@ void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *
         stream->start_scope();
     }
 
+    bool has_return = false;
+
     std::vector<stmt> statement_parsers = {
+        stmt({
+                     stmt_cond(TokenTypes::ID, FUNC_NAME),
+                     stmt_cond(TokenTypes::ID),
+                     stmt_cond(TreeType::BRACKETS),
+                     stmt_cond(TreeType::BRACES),
+                     stmt_cond(TokenTypes::SEMICOLON)
+             }, StatementType::FUNCTION),
+
         stmt({
                  stmt_cond(TokenTypes::ID),
                  stmt_cond(TokenTypes::EQUAL),
@@ -461,6 +512,11 @@ void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *
                 stmt_cond(TokenTypes::ID, ELSE_NAME),
                 stmt_cond(TreeType::BRACES)
              }, StatementType::ELSE),
+
+         stmt({
+             stmt_cond(TokenTypes::ID, RETURN_NAME),
+             stmt_cond(TokenTypes::SEMICOLON, true)
+         }, StatementType::RETURN),
 
         stmt({
                 stmt_cond(TokenTypes::ID, FUNC_NAME),
@@ -522,6 +578,23 @@ void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *
                         break;
                     }
 
+                    case StatementType::RETURN: {
+                        auto &objects = condition.objects;
+                        objects.erase(objects.begin());
+
+                        Statements::VectorCompileStream cstream;
+
+                        Kan::Executor::compile_expression(&cstream, objects, false);
+                        cstream.seek(0);
+
+                        stream->copy_stream_buffer(&cstream);
+                        stream->ret();
+
+                        has_return = true;
+
+                        break;
+                    }
+
                     case StatementType::FUNCTION:{
                         auto func_name = condition.objects.at(1)->token.token;
                         auto func_args = condition.objects.at(2)->tree->objects;
@@ -532,8 +605,6 @@ void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *
 
                         std::vector<std::string> string_sig;
                         uint8_t argscount = Kan::Executor::compile_function_signature(&argstream, func_args, string_sig);
-
-
 
                         Kan::Executor::compile(*func_block, &cstream, true, true); // every function need his own scope!
 
@@ -611,7 +682,15 @@ void Kan::Executor::compile(Kan::AstTree &tree, Kan::Statements::CompileStream *
     }
 
     if (is_function) {
+        if (has_return) {
+            stream->ret();
+
+            return has_return;
+        }
+
         stream->ret_null();
     }
+
+    return has_return;
 }
 
